@@ -2,13 +2,74 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Rabbit Sankey</title>
+    <style>
+        body {
+            font-family: "ui-sans-serif";
+            background: #72889FFF;
+        }
+
+        .rounded {
+            border-radius: 5px;
+        }
+
+        .content {
+            display: grid;
+            grid-auto-rows: auto;
+            grid-template-columns: 0.25fr 1fr 0.25fr;
+            row-gap: 15px;
+        }
+
+        .row {
+            display: contents;
+        }
+
+        .bar {
+            height: 25px;
+            padding-left: 15px;
+            line-height: 25px;
+            background: rgba(0, 0, 0, 0.41);
+            color: chartreuse;
+            font-family: monospace;
+            font-size: small;
+            border: 0;
+            display: flex;
+            flex-direction: row;
+        }
+
+        .bar > div {
+            flex: 1 1 auto;
+        }
+
+        #viewport {
+            background: transparent;
+        }
+
+    </style>
 </head>
 <body>
-<button id="refresh">Refresh</button>
-<div id="viewport"></div>
-<div id="state"></div>
+<div class="content">
+    <div class="row">
+        <div></div>
+        <div class="bar rounded">
+            <div>vhost "/"</div>
+            <div style="text-align: center"> Use rate</div>
+            <div style="text-align: end"><button id="refresh" style="background: transparent; border: none">♻️</button></div>
+        </div>
+        <div></div>
+    </div>
+    <div class="row">
+        <div>&nbsp;</div>
+        <div id="viewport" class="rounded"></div>
+        <div>&nbsp;</div>
+    </div>
+    <div class="row">
+        <div>&nbsp;</div>
+        <div id="state" class="bar rounded"></div>
+    </div>
 
+</div>
 
 <script src="RabbitSankey.js" type="module"></script>
 </body>
