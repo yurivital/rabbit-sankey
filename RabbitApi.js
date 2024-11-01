@@ -2,7 +2,6 @@ export default class RabbitApi {
 
     #cacheMode = "no-cache"
     #credentials = btoa("guest:guest")
-    #exchangesEndpoint = "api/exchanges"
     #queuesEndpoint = "api/queues"
     #vhost = encodeURIComponent("/")
 
@@ -18,34 +17,45 @@ export default class RabbitApi {
         return headers;
     }
 
+    /**
+     * Perform a get http query against rabbitmq api
+     * @param url Address of rabbitMQ management api
+     * @returns {Promise<any>} Promise this json
+     */
     async #GET(url) {
         const response = await fetch(url, {
             method: "GET", cache: this.#cacheMode, headers: this.#createHeaders()
         })
         if (response.ok) {
-            return await response.json()
+            return response.json()
         } else {
             throw new Error(response.statusText)
         }
     }
 
-    async listExchanges() {
-        return await this.#GET(`${this.url}/${this.#exchangesEndpoint}/${this.#vhost}`)
+    /**
+     * Return all queues in vhost
+     * @returns {Promise<*>}
+     */
+    listQueues() {
+        return this.#GET(`${this.url}/${this.#queuesEndpoint}/${this.#vhost}`)
     }
 
-    async getExchangeStats(exchangeName) {
-        return await this.#GET(`${this.url}/api/exchanges/${this.#vhost}/${encodeURIComponent(exchangeName)}`)
+    /**
+     * Return statistic for specified queue
+     * @param qeueName
+     * @returns {Promise<*>}
+     */
+    getQueueStats(qeueName) {
+        return this.#GET(`${this.url}/${this.#queuesEndpoint}/${this.#vhost}/${encodeURIComponent(qeueName)}`)
     }
 
-    async listQueues() {
-        return await this.#GET(`${this.url}/${this.#queuesEndpoint}/${this.#vhost}`)
-    }
-
-    async getQueueStats(qeueName) {
-        return await this.#GET(`${this.url}/api/queues/${this.#vhost}/${encodeURIComponent(qeueName)}`)
-    }
-
-    async listBindings(exchangeName) {
-        return this.#GET(`${this.url}/api/exchanges/${this.#vhost}/${encodeURIComponent(exchangeName)}/bindings/source`)
+    /**
+     * Return binding for specified queue
+     * @param queueName
+     * @returns {Promise<*>}
+     */
+    listBindingOfQueue(queueName) {
+        return this.#GET(`${this.url}/${this.#queuesEndpoint}/${this.#vhost}/${encodeURIComponent(queueName)}/bindings`)
     }
 }

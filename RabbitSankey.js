@@ -22,6 +22,10 @@ class RabbitSankey {
      */
     #links = []
 
+    /**
+     * Flag that indicate which metric to use : message rate or message volume
+     * @type {boolean}
+     */
     #useRateAsValueSource = true
 
     /**
@@ -29,6 +33,7 @@ class RabbitSankey {
      * @param refreshId Identifier of refresh button
      * @param viewportId  Identifier of display area
      * @param stateId  Identifier of state bar
+     * @param useRate Set if the message should be used or number of messages
      */
     constructor(refreshId, viewportId, stateId, useRate) {
         this.refreshButton = document.getElementById(refreshId)
@@ -41,15 +46,22 @@ class RabbitSankey {
                 await this.buildDetailedGraph();
                 await this.display()
             } catch (e) {
-                this.#displayMessage(`Error while loading data : ${e.message}`)
+                this.displayMessage(`Error while loading data : ${e.message}`)
             }
         }
     }
 
-    #displayMessage(message) {
+    /**
+     * Display message in status bar
+     * @param message message to display
+     */
+    displayMessage(message) {
         this.state.innerText = message;
     }
 
+    /**
+     * Remove graph
+     */
     clear() {
         this.viewport.innerText = ""
     }
@@ -63,23 +75,55 @@ class RabbitSankey {
         this.#nodes = []
         this.#links = []
 
-        this.#displayMessage("Fetch queues list")
+        this.displayMessage("Fetch queues list")
         const queues = await this.rabbitApi.listQueues()
         for (const queue of queues) {
             this.#nodes.push({name: queue.name})
-            this.#displayMessage(`Fetch queue stats for ${queue.name} `)
+            this.displayMessage(`Fetch queue stats for ${queue.name} `)
             const queueStats = await this.rabbitApi.getQueueStats(queue.name)
             // get Incoming exchange for establishing links
             if (queueStats.incoming && queueStats.incoming.length > 0) {
                 for (const detailedStats of queueStats.incoming) {
                     this.#populateDetailedNodes(queue.name, detailedStats)
                 }
-            } else {
-                // get here binding for queues
+            }
+            this.displayMessage(`Fetch queue bindings for ${queue.name} `)
+            const bindings = await this.rabbitApi.listBindingOfQueue(queue.name)
+            for (const binding of bindings) {
+                this.#populateWithBindings(queue.name, binding)
             }
         }
     }
 
+    /**
+     * Build nodes and links from queue bindings
+     * @param queueName queue name
+     * @param binding list of
+     */
+    #populateWithBindings(queueName, binding) {
+        const exchange = binding.source
+
+        // don't display default exchange if not actively used.
+        if (exchange === "") {
+            return
+        }
+
+        // detect if the link is already present
+        if (this.#links.find((n) => n.source === exchange && n.target === queueName)) {
+            return;
+        }
+
+        if (!this.#nodes.find((n) => n.name === exchange)) {
+            this.#nodes.push({name: exchange})
+        }
+        this.#links.push({target: queueName, source: exchange, value: 1})
+    }
+
+    /**
+     * Build nodes and links based on detailed message statistics
+     * @param queueName
+     * @param detailedStats
+     */
     #populateDetailedNodes(queueName, detailedStats) {
         const exchange = detailedStats.exchange.name
         if (!this.#nodes.find((n) => n.name === exchange)) {
@@ -95,60 +139,31 @@ class RabbitSankey {
         this.#links.push({target: queueName, source: exchange, value: value})
     }
 
-    async buildGraph() {
-        const exchangesJob = this.rabbitApi.listExchanges()
-        const queuesJob = this.rabbitApi.listQueues()
-        await Promise.all([exchangesJob, queuesJob])
-        const exchanges = await exchangesJob
-        const queues = await queuesJob
-        // Build here Graph
-        this.#nodes = exchanges.map(exchange => {
-            return {name: exchange.name}
-        }).concat(queues.map(queue => {
-            return {name: queue.name}
-        }))
-
-        for (const queue of queues) {
-            const queueStat = await this.rabbitApi.getQueueStats(queue.name)
-            console.log(queueStat)
-        }
-
-        // get stats
-        for (const exchange of exchanges) {
-            const exchangeStats = this.rabbitApi.getExchangeStats(exchange.name)
-            console.log(exchangeStats)
-            const bindings = await this.rabbitApi.listBindings(exchange.name)
-
-            const links = bindings.map((binding) => {
-                return {source: binding.source, target: binding.destination, value: 1}
-            })
-            this.#links.push(...links)
-        }
-    }
-
     /**
      * Display Sankey diagram based on queues
      * @returns {Promise<void>}
      */
     async display() {
 
-        this.#displayMessage(`Create chart`)
+        this.displayMessage(`Create chart`)
         const unit = this.#useRateAsValueSource ? "msg/s" : "messages"
         const fontFamily = "ui-sans-serif"
         const width = this.viewport.getBoundingClientRect().width;
-        const height = 600;
+        const height = 800;
         const color = d3.scaleOrdinal(d3.schemeCategory10);
+
         // Create the SVG container.
         const svg = d3.create("svg")
             .attr("width", width)
             .attr("height", height)
-
+            .attr("viewBox", [0, 0, width, height])
+            .attr("style", "max-width: 100%; height: auto; font: 10px sans-serif;");
         // Constructs and configures a Sankey generator.
         const sankey = d3Sankey.sankey()
             .nodeId(d => d.name)
             .nodeWidth(15)
             .nodePadding(10)
-            .extent([[1, 5], [width, height]])
+            .extent([[1, 5], [width, height - 20]])
 
         // Applies it to the data. We make a copy of the nodes and links objects
         // so to avoid mutating the original.
@@ -165,7 +180,7 @@ class RabbitSankey {
             .attr("y", d => d.y0)
             .attr("height", d => d.y1 - d.y0)
             .attr("width", d => d.x1 - d.x0)
-            .attr("fill", d => color(d.category))
+            .attr("fill", d => color(d.name))
 
         const link = svg.append("g")
             .attr("fill", "none")
@@ -177,11 +192,11 @@ class RabbitSankey {
 
         link.append("path")
             .attr("d", d3Sankey.sankeyLinkHorizontal())
-            .attr("stroke", (d) => color(d.source.category))
+            .attr("stroke", (d) => color(d.source.name))
             .attr("stroke-width", d => Math.max(1, d.width))
 
         link.append("title")
-            .text(d => `${d.source.name} → ${d.target.name}\n${d3.format(d.value)} ${unit}`)
+            .text(d => `${d.source.name} → ${d.target.name}\n${d.value} ${unit}`)
             .attr("font-family", fontFamily)
 
         // Adds labels on the nodes.
@@ -193,7 +208,6 @@ class RabbitSankey {
             .attr("y", d => (d.y1 + d.y0) / 2)
             .attr("dy", "0.35em")
             .attr("text-anchor", d => d.x0 < width / 2 ? "start" : "end")
-            .attr("font-family", fontFamily)
             .text(d => d.name)
 
         // Append the SVG element.
@@ -204,7 +218,11 @@ class RabbitSankey {
 }
 
 window.onload = async (event) => {
-    const app = new RabbitSankey("refresh", "viewport", "state", false)
-    await app.buildDetailedGraph()
-    await app.display()
+    const app = new RabbitSankey("refresh", "viewport", "state", true)
+    try {
+        await app.buildDetailedGraph();
+        await app.display()
+    } catch (e) {
+        app.displayMessage(`Error while loading data : ${e.message}`)
+    }
 }
