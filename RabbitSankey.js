@@ -2,6 +2,7 @@ import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
 import * as d3Sankey from 'https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/+esm'
 import RabbitApi from "./RabbitApi.js";
 
+
 /**
  * Handle display  and side effects
  */
@@ -21,7 +22,7 @@ class RabbitSankey {
      */
     #links = []
 
-    #valueSource = "rate"
+    #useRateAsValueSource = true
 
     /**
      * Construct a new instance of Sankey Rabbit
@@ -29,19 +30,24 @@ class RabbitSankey {
      * @param viewportId  Identifier of display area
      * @param stateId  Identifier of state bar
      */
-    constructor(refreshId, viewportId, stateId) {
+    constructor(refreshId, viewportId, stateId, useRate) {
         this.refreshButton = document.getElementById(refreshId)
         this.viewport = document.getElementById(viewportId)
         this.state = document.getElementById(stateId)
-        this.#setReady()
+        this.#useRateAsValueSource = useRate
         this.rabbitApi = new RabbitApi("http://localhost:15672")
         this.refreshButton.onclick = async () => {
-            await this.display()
+            try {
+                await this.buildDetailedGraph();
+                await this.display()
+            } catch (e) {
+                this.#displayMessage(`Error while loading data : ${e.message}`)
+            }
         }
     }
 
-    #setReady() {
-        this.viewport.innerText = "Ready";
+    #displayMessage(message) {
+        this.state.innerText = message;
     }
 
     clear() {
@@ -57,9 +63,11 @@ class RabbitSankey {
         this.#nodes = []
         this.#links = []
 
+        this.#displayMessage("Fetch queues list")
         const queues = await this.rabbitApi.listQueues()
         for (const queue of queues) {
             this.#nodes.push({name: queue.name})
+            this.#displayMessage(`Fetch queue stats for ${queue.name} `)
             const queueStats = await this.rabbitApi.getQueueStats(queue.name)
             // get Incoming exchange for establishing links
             if (queueStats.incoming && queueStats.incoming.length > 0) {
@@ -79,7 +87,7 @@ class RabbitSankey {
         }
 
         let value = 0.1;
-        if (this.#valueSource === "rate") {
+        if (this.#useRateAsValueSource) {
             value = detailedStats.stats.publish_details.rate
         } else {
             value = detailedStats.stats.publish
@@ -116,8 +124,6 @@ class RabbitSankey {
             })
             this.#links.push(...links)
         }
-        console.log(this.#nodes)
-        console.log(this.#links)
     }
 
     /**
@@ -125,8 +131,12 @@ class RabbitSankey {
      * @returns {Promise<void>}
      */
     async display() {
-        const width = 640;
-        const height = 400;
+
+        this.#displayMessage(`Create chart`)
+        const unit = this.#useRateAsValueSource ? "msg/s" : "messages"
+        const fontFamily = "ui-sans-serif"
+        const width = this.viewport.getBoundingClientRect().width;
+        const height = 600;
         const color = d3.scaleOrdinal(d3.schemeCategory10);
         // Create the SVG container.
         const svg = d3.create("svg")
@@ -138,7 +148,7 @@ class RabbitSankey {
             .nodeId(d => d.name)
             .nodeWidth(15)
             .nodePadding(10)
-            .extent([[1, 5], [width - 1, height - 5]])
+            .extent([[1, 5], [width, height]])
 
         // Applies it to the data. We make a copy of the nodes and links objects
         // so to avoid mutating the original.
@@ -171,7 +181,8 @@ class RabbitSankey {
             .attr("stroke-width", d => Math.max(1, d.width))
 
         link.append("title")
-            .text(d => `${d.source.name} → ${d.target.name}\n${d3.format(d.value)} msg/s`)
+            .text(d => `${d.source.name} → ${d.target.name}\n${d3.format(d.value)} ${unit}`)
+            .attr("font-family", fontFamily)
 
         // Adds labels on the nodes.
         svg.append("g")
@@ -182,15 +193,18 @@ class RabbitSankey {
             .attr("y", d => (d.y1 + d.y0) / 2)
             .attr("dy", "0.35em")
             .attr("text-anchor", d => d.x0 < width / 2 ? "start" : "end")
-            .text(d => d.name);
+            .attr("font-family", fontFamily)
+            .text(d => d.name)
+
         // Append the SVG element.
         this.clear()
         this.viewport.append(svg.node())
+        this.state.innerText = "Done."
     }
 }
 
 window.onload = async (event) => {
-    const app = new RabbitSankey("refresh", "viewport", "state")
+    const app = new RabbitSankey("refresh", "viewport", "state", false)
     await app.buildDetailedGraph()
     await app.display()
 }
