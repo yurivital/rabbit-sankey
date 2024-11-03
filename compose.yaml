@@ -1,6 +1,19 @@
 services:
+  webserver:
+    image: nginx:latest
+    ports:
+      - "8080:80"
+    volumes:
+      - .:/usr/share/nginx/html
+
   rabbit:
     image: rabbitmq:4-management
+    user: rabbitmq
+    healthcheck:
+      test: ["CMD","rabbitmq-diagnostics","-q","ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 6
     ports:
       - "15672:15672"
     volumes:
@@ -10,14 +23,20 @@ services:
     image: pivotalrabbitmq/perf-test:latest
     command: -x 1 -y 2 -u slow-simulation --id slow-simulation --rate 50 --uri amqp://rabbit
     depends_on:
-      - rabbit
+      rabbit:
+        condition: service_healthy
+        restart: true
   simulation-medium:
     image: pivotalrabbitmq/perf-test:latest
     command: -x 1 -y 2 -u medium-simulation --id medium-simulation --rate 150 --uri amqp://rabbit
     depends_on:
-      - rabbit
+      rabbit:
+        condition: service_healthy
+        restart: true
   simulation-fast:
     image: pivotalrabbitmq/perf-test:latest
     command: -x 1 -y 2 -u fast-simulation --id fast-simulation --rate 300 --uri amqp://rabbit
     depends_on:
-      - rabbit
+      rabbit:
+        condition: service_healthy
+        restart: true
