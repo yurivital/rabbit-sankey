@@ -5,8 +5,9 @@ export default class RabbitApi {
     #queuesEndpoint = "api/queues"
     #vhost = encodeURIComponent("/")
 
-    constructor(url) {
+    constructor(url, login, password) {
         this.url = url
+        this.#credentials = btoa(`${login}:${password}`)
     }
 
     #createHeaders() {

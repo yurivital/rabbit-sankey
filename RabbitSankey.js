@@ -1,6 +1,7 @@
 import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
 import * as d3Sankey from 'https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/+esm'
 import RabbitApi from "./RabbitApi.js";
+import Configuration from "./Configuration.js";
 
 
 /**
@@ -40,7 +41,7 @@ class RabbitSankey {
         this.viewport = document.getElementById(viewportId)
         this.state = document.getElementById(stateId)
         this.#useRateAsValueSource = useRate
-        this.rabbitApi = new RabbitApi("http://localhost:15672")
+        this.rabbitApi = new RabbitApi(Configuration.url, Configuration.login, Configuration.password)
         this.refreshButton.onclick = async () => {
             try {
                 await this.buildDetailedGraph();
