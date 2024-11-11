@@ -31,12 +31,14 @@ class RabbitSankey {
 
     /**
      * Construct a new instance of Sankey Rabbit
+     * @param vhostId
      * @param refreshId Identifier of refresh button
      * @param viewportId  Identifier of display area
      * @param stateId  Identifier of state bar
      * @param useRate Set if the message should be used or number of messages
      */
-    constructor(refreshId, viewportId, stateId, useRate) {
+    constructor(vhostId, refreshId, viewportId, stateId, useRate) {
+        this.vhostList = document.getElementById(vhostId)
         this.refreshButton = document.getElementById(refreshId)
         this.viewport = document.getElementById(viewportId)
         this.state = document.getElementById(stateId)
@@ -44,11 +46,36 @@ class RabbitSankey {
         this.rabbitApi = new RabbitApi(Configuration.url, Configuration.login, Configuration.password)
         this.refreshButton.onclick = async () => {
             try {
+                await this.displayVhost()
                 await this.buildDetailedGraph();
                 await this.display()
             } catch (e) {
                 this.displayMessage(`Error while loading data : ${e.message}`)
             }
+        }
+
+        this.vhostList.onchange = async () => {
+            const vhost = this.vhostList.value;
+            this.rabbitApi.vhost = vhost
+            this.clear()
+            await this.buildDetailedGraph();
+            await this.display()
+        }
+    }
+
+    async displayVhost() {
+        const vhosts = await this.rabbitApi.listVhost()
+        this.vhostList.innerText = ""
+        for (const vhost of vhosts) {
+            const optionElement = document.createElement("option");
+            const name = vhost.name
+            optionElement.value = name
+            optionElement.text = name
+
+            if (name === '/') {
+                optionElement.selected = true
+            }
+            this.vhostList.add(optionElement)
         }
     }
 
@@ -57,7 +84,7 @@ class RabbitSankey {
      * @param message message to display
      */
     displayMessage(message) {
-        this.state.innerText = message;
+        this.state.innerText = message
     }
 
     /**
@@ -219,9 +246,10 @@ class RabbitSankey {
 }
 
 window.onload = async (event) => {
-    const app = new RabbitSankey("refresh", "viewport", "state", true)
+    const app = new RabbitSankey("vhosts", "refresh", "viewport", "state", true)
     try {
-        await app.buildDetailedGraph();
+        await app.displayVhost()
+        await app.buildDetailedGraph()
         await app.display()
     } catch (e) {
         app.displayMessage(`Error while loading data : ${e.message}`)

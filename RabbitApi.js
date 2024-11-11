@@ -10,6 +10,18 @@ export default class RabbitApi {
         this.#credentials = btoa(`${login}:${password}`)
     }
 
+    /**
+     * Set current vhost
+     * @param vhost
+     */
+    set vhost(vhost) {
+        this.#vhost = encodeURIComponent(vhost)
+    }
+
+    /**
+     * Create http headers needed for management api
+     * @returns {Headers}
+     */
     #createHeaders() {
         const headers = new Headers()
         headers.append('Content-Type', 'application/json')
@@ -33,6 +45,16 @@ export default class RabbitApi {
             throw new Error(response.statusText)
         }
     }
+
+    /**
+     * Return all vhosts
+     * @returns {Promise<*>}
+     */
+    listVhost()
+    {
+        return this.#GET(`${this.url}/api/vhosts`)
+    }
+
 
     /**
      * Return all queues in vhost
