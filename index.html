@@ -10,6 +10,18 @@
             background: #72889FFF;
         }
 
+        select {
+            height: 20px;
+            line-height: 20px;
+            padding: 2px 5px;
+            background: rgba(0, 0, 0, 0.41);
+            font-family: monospace;
+            border: navy;
+            overflow: hidden;
+            color: chartreuse;
+
+        }
+
         .rounded {
             border-radius: 5px;
         }
@@ -53,10 +65,12 @@
     <div class="row">
         <div></div>
         <div class="bar rounded">
-            <div>vhost "/"</div>
+            <div><select id="vhosts"></select></div>
             <div style="text-align: center"> Use rate</div>
             <div style="text-align: end">
-                <button id="refresh" title="refresh graph" style="background: transparent; border: none; cursor: pointer">♻️</button>
+                <button id="refresh" title="refresh graph"
+                        style="background: transparent; border: none; cursor: pointer">♻️
+                </button>
             </div>
         </div>
         <div></div>
@@ -70,7 +84,6 @@
         <div>&nbsp;</div>
         <div id="state" class="bar rounded"></div>
     </div>
-
 </div>
 
 <script src="RabbitSankey.js" type="module"></script>

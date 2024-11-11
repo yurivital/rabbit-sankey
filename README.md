@@ -60,7 +60,7 @@ I strongly recommend using a dedicated/throwable read only RabbitMQ account.
 - [X] Display flow rate between exchange and queue.
     - [X] Based on rate
     - [X] Based on absolute number of messages
-- [ ] Select any vhost available in the RabbitMQ instance.
+- [X] Select any vhost available in the RabbitMQ instance.
 - [ ] UI can switch from rate mode to message count mode (the width of the arrow is proportional to the sum of published
   messages).
 - [ ] Optionally include channels and connexions in the diagram.
