@@ -30,6 +30,12 @@ class RabbitSankey {
     #useRateAsValueSource = true
 
     /**
+     * Expression for filtering displayed queues
+     * @type {string}
+     */
+    #filter = ""
+
+    /**
      * Construct a new instance of Sankey Rabbit
      * @param useRate Set if the message should be used or number of messages
      */
@@ -40,6 +46,7 @@ class RabbitSankey {
         this.viewport = document.getElementById("viewport")
         this.state = document.getElementById("state")
         this.modeList = document.getElementById("mode")
+        this.filterInput = document.getElementById("filter")
         this.#useRateAsValueSource = true
         this.rabbitApi = new RabbitApi(Configuration.url, Configuration.login, Configuration.password)
 
@@ -67,7 +74,13 @@ class RabbitSankey {
 
         // Display chart based on rate or number of message
         this.modeList.onchange = async () => {
-            this.#useRateAsValueSource = this.modeList.value === "rate";
+            this.#useRateAsValueSource = this.modeList.value === "rate"
+            this.clear()
+            await this.display()
+        }
+
+        this.filterInput.onchange = async () => {
+            this.#filter = this.filterInput.value
             this.clear()
             await this.display()
         }
@@ -120,7 +133,7 @@ class RabbitSankey {
         this.displayMessage("Fetch queues list")
         const queues = await this.rabbitApi.listQueues()
         for (const queue of queues) {
-            this.#nodes.push({name: queue.name})
+            this.#nodes.push({name: queue.name, type: "queue"})
             this.displayMessage(`Fetch queue stats for ${queue.name} `)
             const queueStats = await this.rabbitApi.getQueueStats(queue.name)
             // get Incoming exchange for establishing links
@@ -169,7 +182,7 @@ class RabbitSankey {
     #populateDetailedNodes(queueName, detailedStats) {
         const exchange = detailedStats.exchange.name
         if (!this.#nodes.find((n) => n.name === exchange)) {
-            this.#nodes.push({name: exchange})
+            this.#nodes.push({name: exchange, type: "exchange"})
         }
 
         const rate = detailedStats.stats.publish_details.rate
@@ -204,18 +217,28 @@ class RabbitSankey {
             .nodePadding(10)
             .extent([[1, 5], [width, height - 20]])
 
-        // Applies it to the data. We make a copy of the nodes and links objects
-        // so to avoid mutating the original.
+
+        // Filter node and links
+        const noFilter = () => true
+        const regex = RegExp(this.#filter)
+        const queueNameFilter = (e) => {
+            return e.type !== "queue" || regex.test(e.name)
+        }
+        const appliedFilter = this.#filter === "" ? noFilter : queueNameFilter
+        const filteredNodes = this.#nodes.filter(appliedFilter)
+
         const {nodes, links} = sankey({
-            nodes: this.#nodes,
-            // rebuild links using the selected data source
-            links: this.#links.map((l) => {
-                return {
-                    target: l.target,
-                    source: l.source,
-                    value: this.#useRateAsValueSource ? l.rate : l.publish
-                }
-            })
+            nodes: filteredNodes, // rebuild links using the selected data source
+            links: this.#links
+                .filter((l) => {
+                    // keep only links targeting surviving nodes
+                    return filteredNodes.find((e) => e.name === l.target)
+                })
+                .map((l) => {
+                    return {
+                        target: l.target, source: l.source, value: this.#useRateAsValueSource ? l.rate : l.publish
+                    }
+                })
         })
 
         svg.append("g")

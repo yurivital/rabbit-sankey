@@ -10,6 +10,7 @@
             background: #72889FFF;
         }
 
+        input,
         select {
             height: 20px;
             line-height: 20px;
@@ -19,7 +20,6 @@
             border: navy;
             overflow: hidden;
             color: chartreuse;
-
         }
 
         .rounded {
@@ -66,10 +66,14 @@
         <div></div>
         <div class="bar rounded">
             <div><select id="vhosts"></select></div>
-            <div><select id="mode">
+            <div>
+                <input id="filter" class="rounded" placeholder="Filter queues (regex)" type="search" />
+            </div>
+            <div><select id="mode" class="rounded">
                 <option selected value="rate">Current message rate</option>
                 <option value="volume">Amount of published messages</option>
             </select></div>
+
             <div style="text-align: end">
                 <button id="refresh" style="background: transparent; border: none; cursor: pointer"
                         title="refresh graph">♻️

@@ -63,6 +63,6 @@ I strongly recommend using a dedicated/throwable read only RabbitMQ account.
 - [X] Select any vhost available in the RabbitMQ instance.
 - [X] UI can switch from rate mode to message count mode (the width of the arrow is proportional to the sum of published
   messages).
-- [ ] Filter displayed rabbitMQ queues
+- [X] Filter displayed rabbitMQ queues
 - [ ] Optionally include channels and connexions in the diagram.
 - [ ] Provide a packaged [OCI](https://github.com/opencontainers/image-spec) container image.
