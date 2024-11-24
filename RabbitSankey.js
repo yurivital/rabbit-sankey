@@ -31,19 +31,21 @@ class RabbitSankey {
 
     /**
      * Construct a new instance of Sankey Rabbit
-     * @param vhostId
-     * @param refreshId Identifier of refresh button
-     * @param viewportId  Identifier of display area
-     * @param stateId  Identifier of state bar
      * @param useRate Set if the message should be used or number of messages
      */
-    constructor(vhostId, refreshId, viewportId, stateId, useRate) {
-        this.vhostList = document.getElementById(vhostId)
-        this.refreshButton = document.getElementById(refreshId)
-        this.viewport = document.getElementById(viewportId)
-        this.state = document.getElementById(stateId)
-        this.#useRateAsValueSource = useRate
+    constructor(useRate) {
+
+        this.vhostList = document.getElementById("vhosts")
+        this.refreshButton = document.getElementById("refresh")
+        this.viewport = document.getElementById("viewport")
+        this.state = document.getElementById("state")
+        this.modeList = document.getElementById("mode")
+        this.#useRateAsValueSource = true
         this.rabbitApi = new RabbitApi(Configuration.url, Configuration.login, Configuration.password)
+
+        // wire UI events
+
+        // Rebuild the chart
         this.refreshButton.onclick = async () => {
             try {
                 await this.displayVhost()
@@ -54,15 +56,27 @@ class RabbitSankey {
             }
         }
 
+        // Display chart for another rabbitmq vhost
         this.vhostList.onchange = async () => {
             const vhost = this.vhostList.value;
             this.rabbitApi.vhost = vhost
             this.clear()
-            await this.buildDetailedGraph();
+            await this.buildDetailedGraph()
+            await this.display()
+        }
+
+        // Display chart based on rate or number of message
+        this.modeList.onchange = async () => {
+            this.#useRateAsValueSource = this.modeList.value === "rate";
+            this.clear()
             await this.display()
         }
     }
 
+    /**
+     * Create list of vhost in RabbitMQ instance
+     * @returns {Promise<void>}
+     */
     async displayVhost() {
         const vhosts = await this.rabbitApi.listVhost()
         this.vhostList.innerText = ""
@@ -158,13 +172,10 @@ class RabbitSankey {
             this.#nodes.push({name: exchange})
         }
 
-        let value = 0.1;
-        if (this.#useRateAsValueSource) {
-            value = detailedStats.stats.publish_details.rate
-        } else {
-            value = detailedStats.stats.publish
-        }
-        this.#links.push({target: queueName, source: exchange, value: value})
+        const rate = detailedStats.stats.publish_details.rate
+        const publish = detailedStats.stats.publish
+
+        this.#links.push({target: queueName, source: exchange, rate: rate, publish: publish})
     }
 
     /**
@@ -185,7 +196,7 @@ class RabbitSankey {
             .attr("width", width)
             .attr("height", height)
             .attr("viewBox", [0, 0, width, height])
-            .attr("style", "max-width: 100%; height: auto; font: 10px sans-serif;");
+            .attr("style", "max-width: 100%; height: auto; font: 10px ui-sans-serif;");
         // Constructs and configures a Sankey generator.
         const sankey = d3Sankey.sankey()
             .nodeId(d => d.name)
@@ -196,7 +207,15 @@ class RabbitSankey {
         // Applies it to the data. We make a copy of the nodes and links objects
         // so to avoid mutating the original.
         const {nodes, links} = sankey({
-            nodes: this.#nodes, links: this.#links
+            nodes: this.#nodes,
+            // rebuild links using the selected data source
+            links: this.#links.map((l) => {
+                return {
+                    target: l.target,
+                    source: l.source,
+                    value: this.#useRateAsValueSource ? l.rate : l.publish
+                }
+            })
         })
 
         svg.append("g")
@@ -225,7 +244,6 @@ class RabbitSankey {
 
         link.append("title")
             .text(d => `${d.source.name} → ${d.target.name}\n${d.value} ${unit}`)
-            .attr("font-family", fontFamily)
 
         // Adds labels on the nodes.
         svg.append("g")
@@ -246,7 +264,7 @@ class RabbitSankey {
 }
 
 window.onload = async (event) => {
-    const app = new RabbitSankey("vhosts", "refresh", "viewport", "state", true)
+    const app = new RabbitSankey()
     try {
         await app.displayVhost()
         await app.buildDetailedGraph()

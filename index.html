@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <meta content="width=device-width, initial-scale=1" name="viewport"/>
     <title>Rabbit Sankey</title>
     <style>
         body {
@@ -66,10 +66,13 @@
         <div></div>
         <div class="bar rounded">
             <div><select id="vhosts"></select></div>
-            <div style="text-align: center"> Use rate</div>
+            <div><select id="mode">
+                <option selected value="rate">Current message rate</option>
+                <option value="volume">Amount of published messages</option>
+            </select></div>
             <div style="text-align: end">
-                <button id="refresh" title="refresh graph"
-                        style="background: transparent; border: none; cursor: pointer">♻️
+                <button id="refresh" style="background: transparent; border: none; cursor: pointer"
+                        title="refresh graph">♻️
                 </button>
             </div>
         </div>
@@ -77,12 +80,12 @@
     </div>
     <div class="row">
         <div>&nbsp;</div>
-        <div id="viewport" class="rounded"></div>
+        <div class="rounded" id="viewport"></div>
         <div>&nbsp;</div>
     </div>
     <div class="row">
         <div>&nbsp;</div>
-        <div id="state" class="bar rounded"></div>
+        <div class="bar rounded" id="state"></div>
     </div>
 </div>
 
