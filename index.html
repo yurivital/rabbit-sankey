@@ -26,6 +26,10 @@
             border-radius: 5px;
         }
 
+        select:disabled {
+            color: rgba(127, 255, 0, 0.42);
+        }
+
         .content {
             display: grid;
             grid-auto-rows: auto;
@@ -67,12 +71,13 @@
         <div class="bar rounded">
             <div><select id="vhosts"></select></div>
             <div>
-                <input id="filter" class="rounded" placeholder="Filter queues (regex)" type="search" />
+                <input id="filter" class="rounded" placeholder="Filter queues" type="search"/>
             </div>
             <div><select id="mode" class="rounded">
                 <option selected value="rate">Current message rate</option>
                 <option value="volume">Amount of published messages</option>
-            </select></div>
+            </select>
+            </div>
 
             <div style="text-align: end">
                 <button id="refresh" style="background: transparent; border: none; cursor: pointer"
