@@ -141,8 +141,11 @@ class RabbitSankey {
             // get Incoming exchange for establishing links
             this.#detailedStats = queueStats.incoming && queueStats.incoming.length > 0
             if (this.#detailedStats) {
-                for (const detailedStats of queueStats.incoming) {
-                    this.#populateDetailedNodes(queue.name, detailedStats)
+                for (const incomingStats of queueStats.incoming) {
+                    this.#populateDetailedNodes(queue.name, incomingStats)
+                }
+                for (const delivery of queueStats.deliveries) {
+                    this.#populateDetailedDeliveryNodes(queue.name, delivery)
                 }
             }
 
@@ -190,11 +193,19 @@ class RabbitSankey {
         if (!this.#nodes.find((n) => n.name === exchange)) {
             this.#nodes.push({name: exchange, type: "exchange"})
         }
-
         const rate = detailedStats.stats.publish_details.rate
         const publish = detailedStats.stats.publish
-
         this.#links.push({target: queueName, source: exchange, rate: rate, publish: publish})
+    }
+
+    #populateDetailedDeliveryNodes(queueName, delivery) {
+        const chanelName = delivery.channel_details.name
+        if (!this.#nodes.find((n) => n.name === chanelName)) {
+            this.#nodes.push({name: chanelName, type: "channel"})
+        }
+        const rate = delivery.stats.deliver_details.rate
+        const publish = delivery.stats.deliver
+        this.#links.push({target: chanelName, source: queueName, rate: rate, publish: publish})
     }
 
     /**
