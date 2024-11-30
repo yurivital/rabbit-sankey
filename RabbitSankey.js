@@ -36,11 +36,14 @@ class RabbitSankey {
     #filter = ""
 
     /**
-     * Construct a new instance of Sankey Rabbit
-     * @param useRate Set if the message should be used or number of messages
+     * RabbitMQ have a detailed statistics enables
      */
-    constructor(useRate) {
+    #detailedStats = false
 
+    /**
+     * Construct a new instance of Sankey Rabbit
+     */
+    constructor() {
         this.vhostList = document.getElementById("vhosts")
         this.refreshButton = document.getElementById("refresh")
         this.viewport = document.getElementById("viewport")
@@ -65,8 +68,7 @@ class RabbitSankey {
 
         // Display chart for another rabbitmq vhost
         this.vhostList.onchange = async () => {
-            const vhost = this.vhostList.value;
-            this.rabbitApi.vhost = vhost
+            this.rabbitApi.vhost = this.vhostList.value
             this.clear()
             await this.buildDetailedGraph()
             await this.display()
@@ -137,11 +139,13 @@ class RabbitSankey {
             this.displayMessage(`Fetch queue stats for ${queue.name} `)
             const queueStats = await this.rabbitApi.getQueueStats(queue.name)
             // get Incoming exchange for establishing links
-            if (queueStats.incoming && queueStats.incoming.length > 0) {
+            this.#detailedStats = queueStats.incoming && queueStats.incoming.length > 0
+            if (this.#detailedStats) {
                 for (const detailedStats of queueStats.incoming) {
                     this.#populateDetailedNodes(queue.name, detailedStats)
                 }
             }
+
             this.displayMessage(`Fetch queue bindings for ${queue.name} `)
             const bindings = await this.rabbitApi.listBindingOfQueue(queue.name)
             for (const binding of bindings) {
@@ -171,7 +175,9 @@ class RabbitSankey {
         if (!this.#nodes.find((n) => n.name === exchange)) {
             this.#nodes.push({name: exchange})
         }
-        this.#links.push({target: queueName, source: exchange, value: 1})
+
+        const link = {target: queueName, source: exchange}
+        this.#links.push(link)
     }
 
     /**
@@ -198,8 +204,12 @@ class RabbitSankey {
     async display() {
 
         this.displayMessage(`Create chart`)
+        if (this.#detailedStats) {
+            this.modeList.removeAttribute("disabled", "")
+        } else {
+            this.modeList.setAttribute("disabled", "")
+        }
         const unit = this.#useRateAsValueSource ? "msg/s" : "messages"
-        const fontFamily = "ui-sans-serif"
         const width = this.viewport.getBoundingClientRect().width;
         const height = 800;
         const color = d3.scaleOrdinal(d3.schemeCategory10);
@@ -227,6 +237,14 @@ class RabbitSankey {
         const appliedFilter = this.#filter === "" ? noFilter : queueNameFilter
         const filteredNodes = this.#nodes.filter(appliedFilter)
 
+        const selectLinkValue = (link) => {
+            if (this.#detailedStats) {
+                return this.#useRateAsValueSource ? link.rate : link.publish
+            } else {
+                return 1
+            }
+        }
+
         const {nodes, links} = sankey({
             nodes: filteredNodes, // rebuild links using the selected data source
             links: this.#links
@@ -236,7 +254,9 @@ class RabbitSankey {
                 })
                 .map((l) => {
                     return {
-                        target: l.target, source: l.source, value: this.#useRateAsValueSource ? l.rate : l.publish
+                        target: l.target,
+                        source: l.source,
+                        value: selectLinkValue(l)
                     }
                 })
         })
@@ -286,7 +306,7 @@ class RabbitSankey {
     }
 }
 
-window.onload = async (event) => {
+window.onload = async () => {
     const app = new RabbitSankey()
     try {
         await app.displayVhost()
